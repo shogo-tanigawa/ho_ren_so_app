@@ -115,11 +115,10 @@ class Projects::MessagesController < Projects::BaseProjectController
     @messages_history = all_messages_history_month
     @messages_by_search = message_search_params.to_h
     count_recipients(@messages_history)
-    messages_by_search
+    messages_history_by_search
     all_messages_history_month
     @messages = @messages_history
     @members = @project.users.all
-    messages_by_search
     # formatをhtmlとCSVに振り分ける
     respond_to do |format|
       format.html
@@ -278,11 +277,24 @@ class Projects::MessagesController < Projects::BaseProjectController
   end
 
   def handle_no_results
-    @messages_history = @you_send_messages = @you_addressee_messages = @messages = Report.none
-    session[:you_message_ids] = []
+    @messages_history = @you_send_messages = @you_addressee_messages = @messages = Message.none
+    session[:you_send_message_ids] = []
     session[:you_addressee_message_ids] = []
     session[:all_message_ids] = []
     flash.now[:danger] = '検索結果が見つかりませんでした。'
+  end
+
+  # 連絡検索(連絡履歴)
+  def messages_history_by_search
+    if params[:search].present? and params[:search] != ""
+      @results = Message.search(message_search_params)
+      if @results.present?
+        @message_ids = @results.pluck(:id).uniq || @results.pluck(:message_id).uniq
+        @messages_history = all_messages_history.where(id: @message_ids)
+      else
+        flash.now[:danger] = '検索結果が見つかりませんでした。' if @results.blank?
+      end
+    end
   end
 
   def message_search_params
